@@ -1,0 +1,43 @@
+{
+  "name": "minpaku-ai-concierge",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "db:start": "supabase start",
+    "db:reset": "supabase db reset",
+    "db:push": "supabase db push --linked",
+    "db:types": "supabase gen types typescript --local > src/types/database.ts",
+    "check:connections": "tsx --conditions=react-server --env-file=.env.local scripts/check-connections.ts",
+    "beds24:setup": "tsx --conditions=react-server --env-file=.env.local scripts/beds24-setup.ts",
+    "export:wordpress": "tsx --tsconfig scripts/tsconfig.export.json scripts/export-wordpress.tsx",
+    "property:register": "tsx --conditions=react-server --env-file=.env.local scripts/register-property.ts"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.7.0",
+    "@supabase/supabase-js": "^2.57.0",
+    "next": "^15.5.0",
+    "pdfkit": "0.17.2",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^22.0.0",
+    "@types/pdfkit": "0.17.2",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@types/ws": "8.5.12",
+    "postcss": "^8.5.32",
+    "supabase": "^2.40.0",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.0",
+    "ws": "8.22.0"
+  }
+}
