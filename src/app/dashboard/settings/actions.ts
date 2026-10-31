@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { configureLineWebhook, registerProperty } from "@/lib/property-registration";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -17,6 +18,11 @@ export type RegisterPropertyState = {
     bookingLinkTemplate: string;
     webhookStatus: "ok" | "skipped" | "failed";
   };
+} | null;
+
+export type AiManualState = {
+  error?: string;
+  success?: string;
 } | null;
 
 function field(formData: FormData, name: string): string {
@@ -165,4 +171,57 @@ export async function registerPropertyAction(
         "連携情報を確認できませんでした。LINEのアクセストークンとチャネルシークレット、Beds24の招待コードまたはrefresh token、Beds24物件IDとAPI権限をご確認ください。",
     };
   }
+}
+
+export async function savePropertyAiManualAction(
+  _previousState: AiManualState,
+  formData: FormData,
+): Promise<AiManualState> {
+  const supabase = await createClient();
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  if (authError || !authData.user) return { error: "ログインしてください。" };
+
+  const propertyId = field(formData, "propertyId");
+  const houseRulesText = field(formData, "houseRulesText");
+
+  if (!propertyId) return { error: "物件が選択されていません。" };
+  if (houseRulesText.length > 20_000) return { error: "AIマニュアルは20,000文字以内で入力してください。" };
+
+  const admin = createAdminClient();
+  const { data: property, error: propertyError } = await admin
+    .from("properties")
+    .select("id, user_id")
+    .eq("id", propertyId)
+    .maybeSingle();
+
+  if (propertyError) {
+    console.error("AI manual: failed to load property", propertyError);
+    return { error: "物件情報を確認できませんでした。" };
+  }
+  if (!property) return { error: "対象の物件が見つかりません。" };
+
+  const profileResult = await admin.from("profiles").select("role").eq("id", authData.user.id).single();
+  if (profileResult.error) {
+    console.error("AI manual: failed to load profile", profileResult.error);
+    return { error: "アカウント情報を確認できませんでした。" };
+  }
+
+  if (profileResult.data.role !== "admin" && property.user_id !== authData.user.id) {
+    return { error: "この物件のAIマニュアルを編集する権限がありません。" };
+  }
+
+  const { error: updateError } = await admin
+    .from("properties")
+    .update({ house_rules_text: houseRulesText || null })
+    .eq("id", property.id);
+
+  if (updateError) {
+    console.error("AI manual: failed to update property", updateError);
+    return { error: "AIマニュアルを保存できませんでした。" };
+  }
+
+  revalidatePath("/dashboard/settings");
+  revalidatePath("/dashboard/settings/ai");
+
+  return { success: "AIマニュアルを保存しました。" };
 }

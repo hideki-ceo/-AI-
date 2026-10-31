@@ -5,11 +5,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default async function GuestRegistryPage({
-  params,
+  searchParams,
 }: {
-  params: Promise<{ bookingId: string }>;
+  searchParams?: Promise<{ bookingId?: string }>;
 }) {
-  const { bookingId } = await params;
+  const params = (await searchParams) ?? {};
+  const bookingId = (params as { bookingId?: string }).bookingId ?? "";
   if (!UUID_RE.test(bookingId)) notFound();
 
   const admin = createAdminClient();
@@ -23,6 +24,7 @@ export default async function GuestRegistryPage({
     throw new Error("Unable to load guest registry booking");
   }
   if (!booking || booking.lock_code_sent) notFound();
+
   const { data: property, error: propertyError } = await admin
     .from("properties")
     .select("name")

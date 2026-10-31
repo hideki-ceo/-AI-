@@ -24,20 +24,15 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { Database, Tables } from "@/types/database";
 
 export const runtime = "nodejs";
-// Gemini の生成待ちを after() で行うため余裕を持たせる
 export const maxDuration = 60;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-// AI に渡す直近の会話数
 const HISTORY_LIMIT = 10;
 
 type ChatMessageUpdate = Database["public"]["Tables"]["chat_messages"]["Update"];
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ propertyId: string }> },
-) {
-  const { propertyId } = await params;
+export async function POST(request: NextRequest) {
+  const propertyId = request.nextUrl.searchParams.get("propertyId") ?? "";
   if (!UUID_RE.test(propertyId)) {
     return new NextResponse(null, { status: 404 });
   }
@@ -53,7 +48,6 @@ export async function POST(
   ]);
   if (propertyResult.error || secretsResult.error) {
     console.error("LINE webhook: failed to load property", propertyResult.error ?? secretsResult.error);
-    // 500 を返すと LINE が再送する（再送設定が有効な場合）
     return new NextResponse(null, { status: 500 });
   }
   const property = propertyResult.data;
@@ -84,13 +78,11 @@ export async function POST(
     is_free_tier: tenantResult.data.is_free_tier,
     is_exempt_from_billing: property.is_exempt_from_billing,
   })) {
-    // 未契約・解約済み。LINE には成功を返して再送させない
     return new NextResponse(null, { status: 200 });
   }
 
   const { events } = JSON.parse(rawBody) as LineWebhookBody;
 
-  // LINE は素早く 200 を返さないとタイムアウト扱いにするため、AI 生成はレスポンス後に行う
   after(async () => {
     for (const event of events) {
       if (isGuestTextEvent(event)) {
@@ -123,7 +115,6 @@ async function handleGuestMessage(
     .select("id, created_at")
     .single();
   if (insertError) {
-    // 23505 = unique_violation: 再送されたイベントで、処理済み
     if (insertError.code !== "23505") {
       console.error("LINE webhook: failed to save message", insertError);
     }
@@ -135,7 +126,6 @@ async function handleGuestMessage(
     if (error) console.error("LINE webhook: failed to update message", message.id, error);
   };
 
-  // 予約の紐付けに関する定型文は返信モードに関係なく即時送信する
   const sendFixedReply = async (reply: FixedReply, values: ChatMessageUpdate = {}) => {
     await sendToGuest(accessToken, event.replyToken, lineUserId, reply.text, message.id);
     await update({
@@ -148,7 +138,6 @@ async function handleGuestMessage(
   };
 
   try {
-    // 予約確認メールのリンクから入力済みのメッセージ、またはゲストが手入力した予約番号（＋チェックイン日）
     const linkRequest = parseBookingLinkRequest(event.message.text);
     if (linkRequest) {
       if (!linkRequest.fromEmailLink && linkRequest.checkInCandidates.length === 0) {
@@ -168,7 +157,6 @@ async function handleGuestMessage(
       return;
     }
 
-    // 予約が確認できないゲストには AI で答えない（ハウスルールを第三者に渡さないため）
     const booking = await getActiveGuestBooking(property, lineUserId);
     if (!booking) {
       await sendFixedReply(askForBookingReply());
@@ -191,7 +179,6 @@ async function handleGuestMessage(
       ai_reply_japanese: ai.replyJapanese,
     };
 
-    // 自動モードでも、人の判断が必要な問い合わせは承認待ちに回す
     if (property.reply_mode !== "auto" || ai.needsHuman) {
       await update({ ...draft, status: "pending" });
       return;
@@ -208,13 +195,11 @@ async function handleGuestMessage(
   }
 }
 
-// 友だち追加時、予約が未確認なら予約番号の送信を案内する
 async function handleFollow(
   property: Tables<"properties">,
   accessToken: string,
   event: GuestFollowEvent,
 ) {
-  // 再送された follow で案内を二重に送らない
   if (event.deliveryContext?.isRedelivery) return;
   try {
     const booking = await getActiveGuestBooking(property, event.source.userId);
@@ -247,7 +232,6 @@ async function loadHistory(
   }));
 }
 
-// reply token（無料・約1分で失効）を優先し、失効していたら push で送る
 async function sendToGuest(
   accessToken: string,
   replyToken: string,
@@ -258,7 +242,11 @@ async function sendToGuest(
   try {
     await replyText(accessToken, replyToken, text);
   } catch (err) {
-    console.warn("LINE reply failed, falling back to push", messageId, err);
-    await pushText(accessToken, lineUserId, text, messageId);
+    console.warn("LINE reply failed, falling back to push", { messageId, err });
+    try {
+      await pushText(accessToken, lineUserId, text);
+    } catch (pushError) {
+      console.error("LINE push fallback failed", messageId, pushError);
+    }
   }
 }

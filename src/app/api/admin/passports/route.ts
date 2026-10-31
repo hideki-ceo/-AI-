@@ -4,11 +4,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ guestId: string }> },
-) {
-  const { guestId } = await params;
+export async function GET(request: NextRequest) {
+  const guestId = request.nextUrl.searchParams.get("guestId") ?? "";
   if (!UUID_RE.test(guestId)) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const admin = createAdminClient();

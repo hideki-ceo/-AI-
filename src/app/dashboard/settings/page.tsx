@@ -112,6 +112,11 @@ export default async function PropertySettingsPage() {
                   <p>LINE Webhook URL: <code className="break-all">{appUrl}/api/webhooks/line/{property.id}</code></p>
                   <p>ゲスト用予約リンク: <code className="break-all">{appUrl}/l/{property.id}/[BOOKID]</code></p>
                 </div>
+                <div className="flex flex-wrap gap-3 pt-1">
+                  <a href={`/dashboard/settings/ai?propertyId=${property.id}`} className="text-sm font-medium text-sky-700 hover:text-sky-800">
+                    AIマニュアルを編集
+                  </a>
+                </div>
                 <p className="text-xs leading-5 text-slate-500">
                   予約リンクをBeds24の確認メールに設定すると、ゲストがLINEを開いて予約番号を送信し、予約とLINEが自動で紐づきます。
                 </p>

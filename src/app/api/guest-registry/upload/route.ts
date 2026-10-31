@@ -9,18 +9,17 @@ const EXTENSIONS: Record<string, string> = {
   "image/webp": "webp",
 };
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ bookingId: string }> },
-) {
-  const { bookingId } = await params;
+export async function POST(request: NextRequest) {
+  const bookingId = request.nextUrl.searchParams.get("bookingId") ?? "";
   if (!UUID_RE.test(bookingId)) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
   let body: { contentType?: unknown };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
+
   const contentType = typeof body.contentType === "string" ? body.contentType : "";
   const extension = EXTENSIONS[contentType];
   if (!extension) return NextResponse.json({ error: "Unsupported image type" }, { status: 400 });
@@ -43,5 +42,6 @@ export async function POST(
     console.error("Unable to create passport upload URL", error);
     return NextResponse.json({ error: "Unable to prepare passport upload" }, { status: 500 });
   }
+
   return NextResponse.json({ path: data.path, token: data.token }, { status: 201 });
 }

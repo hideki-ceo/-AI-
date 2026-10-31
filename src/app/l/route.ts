@@ -3,20 +3,13 @@ import { bookingLinkMessage } from "@/lib/guest-booking";
 import { getBotInfo, oaMessageUrl } from "@/lib/line";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-// 予約確認メールに載せるリンク。Beds24 のメールテンプレートに
-//   {APP_URL}/l/{property_id}/[BOOKID]
-// と書くと、ゲストの LINE で公式アカウントのトークが開き、予約番号入りのメッセージが入力済みになる。
-// 予約の照合は送信されたメッセージを受けた Webhook 側で行うので、ここでは Beds24 に問い合わせない
-// （予約の有無をこの URL から推測できないようにするため）。
-
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const BOOKING_ID_RE = /^\d{5,12}$/;
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ propertyId: string; bookingId: string }> },
-) {
-  const { propertyId, bookingId } = await params;
+export async function GET(request: NextRequest) {
+  const propertyId = request.nextUrl.searchParams.get("propertyId") ?? "";
+  const bookingId = request.nextUrl.searchParams.get("bookingId") ?? "";
+
   if (!UUID_RE.test(propertyId) || !BOOKING_ID_RE.test(bookingId)) {
     return new NextResponse("Not Found", { status: 404 });
   }
@@ -48,7 +41,6 @@ export async function GET(
   return NextResponse.redirect(oaMessageUrl(basicId, bookingLinkMessage(bookingId)), 302);
 }
 
-// 初回のみ LINE API から basic ID を取得して properties に保存する
 async function resolveBasicId(propertyId: string): Promise<string> {
   const supabase = createAdminClient();
   const { data: secrets, error } = await supabase

@@ -20,11 +20,8 @@ function hasValidSecret(request: NextRequest): boolean {
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ propertyId: string }> },
-) {
-  const { propertyId } = await params;
+export async function POST(request: NextRequest) {
+  const propertyId = request.nextUrl.searchParams.get("propertyId") ?? "";
   if (!UUID_RE.test(propertyId)) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (!hasValidSecret(request)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -97,9 +94,6 @@ export async function POST(
   }
 
   const isCancelled = ["cancelled", "canceled", "black", "deleted"].includes(status);
-
-  // Airbnb 予約は OTA に支払い済み。それ以外は Webhook の本文ではなく Beds24 API の請求項目で判定する。
-  // 取得に失敗した場合は is_paid を変更しない（次回の Webhook で再判定）
   const isOta = isPrepaidOtaBooking(payload);
   let beds24Paid: boolean | null = null;
   if (!isOta) {
@@ -109,7 +103,7 @@ export async function POST(
       console.error("Beds24 payment status lookup failed", beds24BookingId, error);
     }
   }
-  // オーナー独自サイトの Stripe 決済で支払い済みの予約は、Beds24 側に入金がなくても未払いに戻さない
+
   let paymentUpdate: { is_paid: boolean; payment_source: "beds24" | "ota" | null; paid_at: string | null } | null = null;
   if (isOta && previous?.payment_source !== "stripe_direct") {
     paymentUpdate = {
@@ -170,7 +164,7 @@ export async function POST(
         text:
           `${guestName || "ゲスト"} 様\n\n${property.name} のご予約ありがとうございます。\n` +
           `チェックイン前に、以下の専用フォームからご宿泊者全員の情報をご登録ください。\n\n` +
-          `${appUrl}/guest/${booking.id}\n\n` +
+          `${appUrl}/guest?bookingId=${booking.id}\n\n` +
           (isOta
             ? "鍵番号はチェックインの1週間前からご案内します。"
             : "宿泊名簿の登録と代金の決済が確認できるまで鍵番号はご案内されません。" +
@@ -182,12 +176,17 @@ export async function POST(
     }
   }
 
-  if (!isCancelled) {
+  if (!isCancelled && !previous?.is_paid && !paymentUpdate && !isOta && beds24Paid !== true) {
+    return NextResponse.json({ received: true });
+  }
+
+  if (isCancelled) {
     try {
-      await deliverLockCode(booking.id);
+      await admin.from("bookings").update({ status: "cancelled" }).eq("id", booking.id);
     } catch (error) {
-      console.error("Beds24 webhook lock delivery attempt failed", booking.id, error);
+      console.error("Beds24 webhook cancellation sync failed", booking.id, error);
     }
   }
-  return NextResponse.json({ ok: true, bookingId: booking.id });
+
+  return NextResponse.json({ received: true });
 }

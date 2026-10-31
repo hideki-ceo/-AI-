@@ -5,12 +5,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ bookingId: string }> },
-) {
-  const { bookingId } = await params;
+export async function GET(request: NextRequest) {
+  const bookingId = request.nextUrl.searchParams.get("bookingId") ?? "";
   if (!UUID_RE.test(bookingId)) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
   const { data: booking, error } = await createAdminClient()
     .from("bookings")
     .select("id, check_in, check_out, num_guests, is_guest_info_completed, lock_code_sent, property_id")
@@ -21,6 +19,7 @@ export async function GET(
     return NextResponse.json({ error: "Unable to load booking" }, { status: 500 });
   }
   if (!booking || booking.lock_code_sent) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
   const { data: property, error: propertyError } = await createAdminClient()
     .from("properties")
     .select("name")
@@ -30,6 +29,7 @@ export async function GET(
     console.error("Guest registry property lookup failed", propertyError);
     return NextResponse.json({ error: "Unable to load property" }, { status: 500 });
   }
+
   return NextResponse.json({
     propertyName: property.name,
     checkIn: booking.check_in,
@@ -39,12 +39,10 @@ export async function GET(
   });
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ bookingId: string }> },
-) {
-  const { bookingId } = await params;
+export async function POST(request: NextRequest) {
+  const bookingId = request.nextUrl.searchParams.get("bookingId") ?? "";
   if (!UUID_RE.test(bookingId)) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
   let body: { guests?: unknown };
   try {
     body = await request.json();
@@ -68,6 +66,7 @@ export async function POST(
   if (!guests) {
     return NextResponse.json({ error: "Guest details and required passport documents are incomplete" }, { status: 400 });
   }
+
   const validKeys = guests
     .map((guest) => guest.passport_image_key)
     .filter((key): key is string => key !== null);
@@ -102,5 +101,6 @@ export async function POST(
   } catch (deliveryError) {
     console.error("Lock code delivery after registry submission failed", deliveryError);
   }
+
   return NextResponse.json({ ok: true }, { status: 200 });
 }
