@@ -1,5 +1,4 @@
 import { Benefits } from "@/components/lp/Benefits";
-import { Cta } from "@/components/lp/Cta";
 import { Faq } from "@/components/lp/Faq";
 import { Features } from "@/components/lp/Features";
 import { Footer } from "@/components/lp/Footer";
@@ -21,7 +20,6 @@ export default function Home() {
         <Benefits />
         <Pricing />
         <Faq />
-        <Cta />
       </main>
       <Footer />
     </>

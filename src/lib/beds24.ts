@@ -30,7 +30,7 @@ export type Beds24Credentials = {
 // 招待コードは1回しか使えないため、他の入力値の検証を済ませてから呼ぶこと。
 export async function exchangeBeds24InviteCode(inviteCode: string): Promise<Beds24Credentials> {
   const res = await fetch(`${BEDS24_API_BASE}/authentication/setup`, {
-    headers: { code: inviteCode, deviceName: "Minpaku AI Concierge" },
+    headers: { code: inviteCode, deviceName: "Minpaku Report" },
     signal: AbortSignal.timeout(10_000),
   });
   if (!res.ok) {

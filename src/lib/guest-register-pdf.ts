@@ -48,7 +48,7 @@ export async function renderGuestRegisterPdf(register: GuestRegister): Promise<B
     bufferPages: true,
     info: {
       Title: `宿泊者名簿 ${register.property.name} ${register.year}年${register.month}月`,
-      Producer: "Minpaku AI Concierge",
+      Producer: "Minpaku Report",
     },
   });
   const chunks: Buffer[] = [];

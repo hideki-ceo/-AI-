@@ -28,7 +28,7 @@ export function SignupForm() {
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/confirm?next=/dashboard/bookings`,
+          emailRedirectTo: `${window.location.origin}/auth/confirm?next=/dashboard/settings`,
         },
       });
       if (signupError) {
@@ -37,13 +37,13 @@ export function SignupForm() {
       }
 
       if (data.session) {
-        router.replace("/dashboard/bookings");
+        router.replace("/dashboard/settings");
         router.refresh();
       } else {
         setSubmitted(true);
       }
     } catch {
-      setError("アカウントを作成できませんでした。通信状況を確認して再度お試しください。");
+      setError("      アカウントを作成して申し込むできませんでした。通信状況を確認して再度お試しください。");
     } finally {
       setBusy(false);
     }
@@ -106,10 +106,10 @@ export function SignupForm() {
         disabled={busy}
         className="w-full rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
       >
-        {busy ? "登録中…" : "アカウントを作成"}
+        {busy ? "申し込みを準備中…" : "アカウントを作成して申し込む"}
       </button>
-      <Link href="/login" className="block text-center text-sm text-slate-600 hover:underline">
-        ログインに戻る
+      <Link href="/login?next=/dashboard/settings" className="block text-center text-sm text-slate-600 hover:underline">
+        すでにアカウントをお持ちの方はログイン
       </Link>
     </form>
   );

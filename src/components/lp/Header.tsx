@@ -1,4 +1,4 @@
-import { CONTACT_URL, SITE_NAME } from "./site";
+import { SIGNUP_URL, SITE_NAME } from "./site";
 
 const NAV = [
   { href: "#features", label: "特徴" },
@@ -27,10 +27,10 @@ export function Header() {
           </ul>
         </nav>
         <a
-          href={CONTACT_URL}
+          href={SIGNUP_URL}
           className="rounded-full bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700"
         >
-          無料で試してみる
+          サブスクに申し込む
         </a>
       </div>
     </header>

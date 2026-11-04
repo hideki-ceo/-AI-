@@ -1,4 +1,4 @@
-# Minpaku AI Concierge
+# Minpaku Report
 
 Beds24 × Gemini × LINE の民泊自動応答SaaS。仕様は Obsidian vault 内の `Desktop/24時間自動オペレーターシステム/spec.md` を参照。
 

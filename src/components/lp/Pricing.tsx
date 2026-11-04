@@ -1,7 +1,7 @@
 import { BASE_PRICE_JPY } from "@/lib/billing";
 import { CheckIcon } from "./Features";
 import { SectionHeading } from "./SectionHeading";
-import { CONTACT_URL } from "./site";
+import { SIGNUP_URL } from "./site";
 
 const INCLUDED = [
   "Beds24 API連携",
@@ -45,10 +45,10 @@ export function Pricing() {
               例：3物件の場合は月額33,000円（税込）。ソアリング合同会社の無料対象テナントおよび管理委託契約物件は課金対象外です。
             </p>
             <a
-              href={CONTACT_URL}
+              href={SIGNUP_URL}
               className="mt-9 block rounded-full bg-brand-600 py-3.5 text-center font-semibold text-white transition hover:bg-brand-700"
             >
-              無料で試してみる
+              サブスクに申し込む
             </a>
         </div>
       </div>

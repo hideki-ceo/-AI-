@@ -1,5 +1,5 @@
 -- =====================================================================
--- Minpaku AI Concierge 初期スキーマ
+-- Minpaku Report 初期スキーマ
 -- spec.md §4 をベースに、以下を追加・変更している:
 --   * CHECK 制約で role / reply_mode / status の値を固定
 --   * 外部APIの秘密情報は property_secrets に分離（service_role のみアクセス可）

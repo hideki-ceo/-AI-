@@ -186,7 +186,7 @@ async function checkLine() {
     return;
   }
   await check("push 送信", async () => {
-    await pushText(accessToken, testUserId, `[Minpaku AI Concierge] 接続テスト ${new Date().toLocaleString("ja-JP")}`, randomUUID());
+    await pushText(accessToken, testUserId, `[Minpaku Report] 接続テスト ${new Date().toLocaleString("ja-JP")}`, randomUUID());
     return "送信しました（LINE アプリで受信を確認してください）";
   });
 }

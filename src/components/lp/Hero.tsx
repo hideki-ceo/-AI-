@@ -1,4 +1,4 @@
-import { CONTACT_URL } from "./site";
+import { SIGNUP_URL } from "./site";
 
 const BADGES = ["Beds24・Stripe連携", "決済と名簿完了まで鍵番号をブロック", "パスポート画像を非公開保管"];
 
@@ -37,10 +37,10 @@ export function Hero() {
           </ul>
           <div className="mt-9 flex flex-col gap-3 sm:flex-row">
             <a
-              href={CONTACT_URL}
+              href={SIGNUP_URL}
               className="rounded-full bg-brand-600 px-7 py-3.5 text-center font-semibold text-white shadow-lg shadow-brand-600/25 transition hover:bg-brand-700"
             >
-              導入について相談する
+              サブスクに申し込む
             </a>
             <a
               href="#features"

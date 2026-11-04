@@ -1,6 +1,6 @@
 // LP を WordPress の「カスタムHTML」ブロックに貼り付けられる1つの HTML に書き出す。
-//   npm run export:wordpress -- [--url https://example.com/lp/] [--contact https://example.com/contact/]
-// --url は構造化データ（JSON-LD）に載せる LP の公開 URL、--contact は CTA ボタンのリンク先。
+//   npm run export:wordpress -- [--url https://example.com/lp/] [--signup https://app.example.com/signup]
+// --url は構造化データ（JSON-LD）に載せる LP の公開 URL、--signup は申込ボタンのリンク先。
 // 出力: wordpress/minpaku-lp.html（貼り付け用）と wordpress/preview.html（ブラウザでの確認用）
 //
 // テーマの CSS と干渉しないよう、Tailwind の CSS はすべて #minpaku-lp 配下に限定し、
@@ -18,11 +18,11 @@ const OUT_DIR = path.join(ROOT, "wordpress");
 
 async function main() {
   const { values } = parseArgs({
-    options: { url: { type: "string" }, contact: { type: "string" } },
+    options: { url: { type: "string" }, signup: { type: "string" } },
   });
   // site.ts が import 時に読むので、コンポーネントを読み込む前に設定する
   process.env.NEXT_PUBLIC_APP_URL = values.url ?? "";
-  if (values.contact) process.env.NEXT_PUBLIC_CONTACT_URL = values.contact;
+  process.env.NEXT_PUBLIC_SIGNUP_URL = values.signup ?? "/signup";
 
   const body = await renderBody();
   await mkdir(OUT_DIR, { recursive: true });
@@ -33,7 +33,7 @@ async function main() {
   const css = await buildCss(scanPath);
 
   const snippet = [
-    "<!-- Minpaku AI Concierge LP: WordPress のカスタムHTMLブロックにこのまま貼り付けてください -->",
+    "<!-- Minpaku Report LP: WordPress のカスタムHTMLブロックにこのまま貼り付けてください -->",
     `<style>${css}</style>`,
     body,
   ].join("\n");
@@ -47,11 +47,11 @@ async function main() {
 
   console.log(`wordpress/minpaku-lp.html を書き出しました（${Math.round(Buffer.byteLength(snippet) / 1024)} KB）`);
   if (!values.url) console.log("※ --url 未指定のため、構造化データに URL は含めていません");
-  if (!values.contact) console.log("※ --contact 未指定のため、CTA ボタンはページ内の #contact に移動します");
+  if (!values.signup) console.log("※ --signup 未指定のため、申込ボタンは /signup に移動します");
 }
 
 async function renderBody(): Promise<string> {
-  const [{ Hero }, { Problems }, { Features }, { Benefits }, { Pricing }, { Faq }, { Cta }, { Footer }, { JsonLd }] =
+  const [{ Hero }, { Problems }, { Features }, { Benefits }, { Pricing }, { Faq }, { Footer }, { JsonLd }] =
     await Promise.all([
       import("@/components/lp/Hero"),
       import("@/components/lp/Problems"),
@@ -59,7 +59,6 @@ async function renderBody(): Promise<string> {
       import("@/components/lp/Benefits"),
       import("@/components/lp/Pricing"),
       import("@/components/lp/Faq"),
-      import("@/components/lp/Cta"),
       import("@/components/lp/Footer"),
       import("@/components/lp/JsonLd"),
     ]);
@@ -74,7 +73,6 @@ async function renderBody(): Promise<string> {
         <Benefits />
         <Pricing />
         <Faq />
-        <Cta />
         <Footer />
       </div>
       <JsonLd />

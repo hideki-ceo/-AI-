@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og";
 import { SITE_NAME } from "@/components/lp/site";
 
 // 既定フォントに日本語グリフがないため、画像内の文言は英語にしている
-export const alt = "Minpaku AI Concierge - Beds24 x LINE AI auto-reply for vacation rentals";
+export const alt = "Minpaku Report - Vacation rental reporting and guest registry";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
