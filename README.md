@@ -89,6 +89,7 @@ npm run check:connections -- line --send-line   # LINE_TEST_USER_ID に実際に
 | `properties` | 物件設定（返信モード・ハウスルール） | 本人のみ SELECT / UPDATE |
 | `property_secrets` | Beds24 / LINE の認証情報 | なし（service_role のみ） |
 | `chat_messages` | 受信メッセージと AI 返答案 | 物件オーナーが SELECT / UPDATE |
+| `property_ai_documents` | 予約前AIの参照資料（抽出テキストと非公開ファイル） | なし（service_role のみ） |
 
 - `role = 'admin'` のユーザーは全テーブルを閲覧できる。
 - 物件の追加・削除は Stripe quantity の同期を伴うため、Server Action から service_role で行う。
@@ -96,20 +97,24 @@ npm run check:connections -- line --send-line   # LINE_TEST_USER_ID に実際に
 
 ## LINE 自動応答の流れ
 
-`src/app/api/webhooks/line/[propertyId]/route.ts`
+`src/app/api/webhooks/line/route.ts`
 
 1. `property_secrets.line_channel_secret` で署名を検証（失敗は 401）
 2. オーナーが未契約（`is_internal_free = false` かつ Subscription が active / trialing / past_due 以外）なら何もせず 200
 3. 200 を即返し、`after()` で以下を実行
 4. `chat_messages` に保存（`line_webhook_event_id` の UNIQUE で再送を除外）
 5. 予約番号を含むメッセージなら Beds24 で照合して `line_guests` に紐付け、定型文で結果を返す（返信モードに関係なく即時送信）
-6. 有効な予約（キャンセルされておらず、チェックアウト日前）に紐付いていないゲストには、予約番号の送信を求める定型文を返す。AI は使わない
-7. 直近10件の会話・ハウスルール・予約情報を渡して Gemini で返答案＋日本語訳を生成
+6. 有効な予約に紐付いたゲストには、直近10件の会話・ハウスルール・予約情報を渡して Gemini で返答案＋日本語訳を生成
+7. 予約に未紐付けのユーザーは予約前問い合わせとして扱い、予約前ルールとアップロード資料を使って Gemini で返答案を生成する。予約番号・日付の照合メッセージはこの分岐より先に処理する
 8. `reply_mode = 'auto'` かつ AI が「人の判断が必要」と判定しなければ送信 → `sent`。それ以外は `pending`（承認待ち）。失敗時は `failed` + `error_message`
 
-友だち追加（follow）時も、予約が未確認なら予約番号の送信を案内する。
+友だち追加（follow）時は予約前問い合わせを歓迎する案内を返す。すでに予約済みの場合は予約番号とチェックイン日を送るよう案内する。
 
 LINE Developers 側の設定: Webhook URL に `{APP_URL}/api/webhooks/line/{property_id}` を登録し、「Webhookの利用」を ON、「応答メッセージ」と「あいさつメッセージ」を OFF にする。
+
+## 予約前問い合わせのAI設定
+
+`/dashboard/settings/ai` で物件ごとに予約前問い合わせ用の応答ルールを入力し、PDF / DOCX / TXT / Markdown の参照資料を最大10件（1件10MB以下）アップロードできる。アップロードは非公開ストレージに保存し、抽出したテキストだけを Gemini の回答コンテキストに含める。スキャン画像のみのPDFは未対応。予約前のAIも物件の `reply_mode` に従い、自動返信または承認待ちにする。
 
 ## 予約とゲストの紐付け
 

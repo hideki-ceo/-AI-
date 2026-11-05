@@ -57,6 +57,7 @@ export type Database = {
           beds24_property_id: string;
           reply_mode: ReplyMode;
           house_rules_text: string | null;
+          prebooking_rules_text: string | null;
           line_basic_id: string | null;
           created_at: string;
           updated_at: string;
@@ -74,6 +75,7 @@ export type Database = {
           beds24_property_id: string;
           reply_mode?: ReplyMode;
           house_rules_text?: string | null;
+          prebooking_rules_text?: string | null;
           line_basic_id?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -220,6 +222,38 @@ export type Database = {
         };
         Update: Partial<Database["public"]["Tables"]["lead_inquiries"]["Insert"]>;
         Relationships: [];
+      };
+      property_ai_documents: {
+        Row: {
+          id: string;
+          property_id: string;
+          file_name: string;
+          storage_key: string;
+          content_type: string;
+          size_bytes: number;
+          extracted_text: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          property_id: string;
+          file_name: string;
+          storage_key: string;
+          content_type: string;
+          size_bytes: number;
+          extracted_text: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["property_ai_documents"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "property_ai_documents_property_id_fkey";
+            columns: ["property_id"];
+            isOneToOne: false;
+            referencedRelation: "properties";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       stripe_webhook_events: {
         Row: { id: string; processed_at: string };

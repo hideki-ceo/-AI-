@@ -24,7 +24,7 @@ export default async function AiManualSettingsPage({
 
   let propertiesQuery = admin
     .from("properties")
-    .select("id, user_id, property_name, house_rules_text")
+    .select("id, user_id, property_name, house_rules_text, prebooking_rules_text")
     .order("property_name");
   if (profile.role !== "admin") {
     propertiesQuery = propertiesQuery.eq("user_id", authData.user.id);
@@ -34,15 +34,16 @@ export default async function AiManualSettingsPage({
   if (propertiesError) throw new Error(`Unable to load properties: ${propertiesError.message}`);
 
   const params = (await searchParams) ?? {};
-  const selectedId = (params as { propertyId?: string }).propertyId ?? properties[0]?.id ?? "";
+  const requestedId = params.propertyId;
+  const selectedId = properties.find((property) => property.id === requestedId)?.id ?? properties[0]?.id ?? "";
 
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-ink">AIマニュアル設定</h1>
         <p className="mt-2 max-w-3xl text-sm text-slate-600">
-          物件ごとに、AIがLINEで回答するときに優先して参照するルールを保存します。
-          例: 連絡手段、返答のトーン、緊急時の対応、支払いやキャンセルの扱いなどを記載してください。
+          物件ごとに、宿泊中のゲスト向けルールと予約前問い合わせ向けルールを設定できます。
+          予約前の案内資料をアップロードすると、AIが回答時に参照します。
         </p>
       </div>
 

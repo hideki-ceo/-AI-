@@ -183,9 +183,13 @@ export async function savePropertyAiManualAction(
 
   const propertyId = field(formData, "propertyId");
   const houseRulesText = field(formData, "houseRulesText");
+  const prebookingRulesText = field(formData, "prebookingRulesText");
 
   if (!propertyId) return { error: "物件が選択されていません。" };
   if (houseRulesText.length > 20_000) return { error: "AIマニュアルは20,000文字以内で入力してください。" };
+  if (prebookingRulesText.length > 20_000) {
+    return { error: "予約前問い合わせルールは20,000文字以内で入力してください。" };
+  }
 
   const admin = createAdminClient();
   const { data: property, error: propertyError } = await admin
@@ -212,7 +216,10 @@ export async function savePropertyAiManualAction(
 
   const { error: updateError } = await admin
     .from("properties")
-    .update({ house_rules_text: houseRulesText || null })
+    .update({
+      house_rules_text: houseRulesText || null,
+      prebooking_rules_text: prebookingRulesText || null,
+    })
     .eq("id", property.id);
 
   if (updateError) {

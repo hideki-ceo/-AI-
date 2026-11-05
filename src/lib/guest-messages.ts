@@ -11,10 +11,10 @@ function bilingual(japanese: string, english: string): FixedReply {
   return { text: `${japanese}\n\n${english}`, japanese };
 }
 
-export function askForBookingReply(): FixedReply {
+export function preBookingWelcomeReply(): FixedReply {
   return bilingual(
-    "メッセージありがとうございます。ご予約を確認するため、予約番号とチェックイン日を送信してください。\n例: 12345678 2026-11-03\n（予約確認メールのリンクから開いた場合は、入力済みのメッセージをそのまま送信してください）",
-    "Thank you for your message. To confirm your reservation, please send us your booking number and check-in date.\nExample: 12345678 2026-11-03\n(If you opened this chat from the link in your confirmation email, just send the pre-filled message.)",
+    "友だち追加ありがとうございます。ご予約前のご質問をこちらにお送りください。すでにご予約済みの場合は、予約番号とチェックイン日を送信してください。\n例: 12345678 2026-11-03",
+    "Thank you for adding us. Please message us with any questions before booking. If you already have a reservation, send your booking number and check-in date.\nExample: 12345678 2026-11-03",
   );
 }
 

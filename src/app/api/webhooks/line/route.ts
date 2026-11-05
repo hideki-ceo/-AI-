@@ -1,13 +1,17 @@
 import { after, NextResponse, type NextRequest } from "next/server";
 import { canUseService } from "@/lib/billing";
-import { generateConciergeReply, type ConversationTurn } from "@/lib/gemini";
+import {
+  generateConciergeReply,
+  generatePreBookingReply,
+  type ConversationTurn,
+} from "@/lib/gemini";
 import { getActiveGuestBooking, linkGuestBooking, parseBookingLinkRequest } from "@/lib/guest-booking";
 import {
-  askForBookingReply,
   askForCheckInDateReply,
   bookingLinkLockedReply,
   bookingLinkedReply,
   bookingNotFoundReply,
+  preBookingWelcomeReply,
   type FixedReply,
 } from "@/lib/guest-messages";
 import {
@@ -28,6 +32,7 @@ export const maxDuration = 60;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const HISTORY_LIMIT = 10;
+const PREBOOKING_REFERENCE_LIMIT = 60_000;
 
 type ChatMessageUpdate = Database["public"]["Tables"]["chat_messages"]["Update"];
 
@@ -159,7 +164,43 @@ async function handleGuestMessage(
 
     const booking = await getActiveGuestBooking(property, lineUserId);
     if (!booking) {
-      await sendFixedReply(askForBookingReply());
+      const history = await loadHistory(property.id, lineUserId, message.created_at);
+      const { data: documents, error: documentsError } = await supabase
+        .from("property_ai_documents")
+        .select("file_name, extracted_text")
+        .eq("property_id", property.id)
+        .order("created_at", { ascending: true })
+        .limit(10);
+      if (documentsError) throw new Error(`failed to load pre-booking AI documents: ${documentsError.message}`);
+
+      let remainingCharacters = PREBOOKING_REFERENCE_LIMIT;
+      const referenceDocuments = (documents ?? [])
+        .map((document) => {
+          const text = document.extracted_text.slice(0, remainingCharacters);
+          remainingCharacters -= text.length;
+          return { fileName: document.file_name, text };
+        })
+        .filter((document) => document.text.length > 0);
+      const ai = await generatePreBookingReply({
+        propertyName: property.property_name,
+        prebookingRules: property.prebooking_rules_text,
+        referenceDocuments,
+        history,
+        message: event.message.text,
+      });
+
+      const draft: ChatMessageUpdate = {
+        guest_language: ai.language,
+        ai_reply_draft: ai.reply,
+        ai_reply_japanese: ai.replyJapanese,
+      };
+      if (property.reply_mode !== "auto" || ai.needsHuman) {
+        await update({ ...draft, status: "pending" });
+        return;
+      }
+
+      await sendToGuest(accessToken, event.replyToken, lineUserId, ai.reply, message.id);
+      await update({ ...draft, status: "sent", sent_at: new Date().toISOString() });
       return;
     }
 
@@ -204,7 +245,7 @@ async function handleFollow(
   try {
     const booking = await getActiveGuestBooking(property, event.source.userId);
     if (!booking) {
-      await replyText(accessToken, event.replyToken, askForBookingReply().text);
+      await replyText(accessToken, event.replyToken, preBookingWelcomeReply().text);
     }
   } catch (err) {
     console.error("LINE webhook: failed to handle follow", property.id, err);
