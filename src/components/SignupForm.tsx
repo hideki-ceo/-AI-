@@ -42,8 +42,15 @@ export function SignupForm() {
       } else {
         setSubmitted(true);
       }
-    } catch {
-      setError("      アカウントを作成して申し込むできませんでした。通信状況を確認して再度お試しください。");
+    } catch (signupException) {
+      console.error("Unexpected error while creating an account", signupException);
+      const detail =
+        signupException instanceof Error && signupException.message
+          ? ` (${signupException.message})`
+          : "";
+      setError(
+        `アカウントを作成できませんでした${detail}。通信状況を確認して再度お試しください。`,
+      );
     } finally {
       setBusy(false);
     }
