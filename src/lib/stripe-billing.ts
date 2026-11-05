@@ -1,4 +1,8 @@
 import "server-only";
+import {
+  MAX_PROPERTIES_PER_ACCOUNT,
+  monthlyPriceJpy,
+} from "@/lib/billing";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 async function stripeRequest(path: string, method: "GET" | "POST" | "DELETE", form?: URLSearchParams) {
@@ -18,7 +22,7 @@ async function stripeRequest(path: string, method: "GET" | "POST" | "DELETE", fo
   return result;
 }
 
-export async function syncTenantStripeQuantity(tenantId: string) {
+export async function syncTenantStripePlan(tenantId: string) {
   const admin = createAdminClient();
   const [tenantResult, propertiesResult] = await Promise.all([
     admin
@@ -29,15 +33,19 @@ export async function syncTenantStripeQuantity(tenantId: string) {
     admin.from("properties").select("id, is_exempt_from_billing").eq("tenant_id", tenantId),
   ]);
   if (tenantResult.error || propertiesResult.error) {
-    throw new Error(`Unable to load subscription quantity: ${tenantResult.error?.message ?? propertiesResult.error?.message}`);
+    throw new Error(`Unable to load subscription plan: ${tenantResult.error?.message ?? propertiesResult.error?.message}`);
   }
   const tenant = tenantResult.data;
   const subscriptionId = tenant.stripe_subscription_id;
+  const billableProperties = propertiesResult.data.filter((property) => !property.is_exempt_from_billing);
+  if (propertiesResult.data.length > MAX_PROPERTIES_PER_ACCOUNT) {
+    throw new Error(`Account exceeds the ${MAX_PROPERTIES_PER_ACCOUNT}-property limit`);
+  }
   if (!subscriptionId) return;
 
   const shouldCancel =
     tenant.is_free_tier ||
-    propertiesResult.data.filter((property) => !property.is_exempt_from_billing).length === 0;
+    billableProperties.length === 0;
   if (shouldCancel) {
     if (tenant.stripe_subscription_status !== "canceled") {
       await stripeRequest(`subscriptions/${encodeURIComponent(subscriptionId)}`, "DELETE");
@@ -57,15 +65,38 @@ export async function syncTenantStripeQuantity(tenantId: string) {
 
   if (tenant.stripe_subscription_status !== "active") return;
   const subscription = await stripeRequest(`subscriptions/${encodeURIComponent(subscriptionId)}`, "GET");
-  const items = (subscription as { items?: { data?: Array<{ id: string }> } }).items?.data ?? [];
+  const items = (subscription as {
+    items?: {
+      data?: Array<{
+        id: string;
+        quantity?: number;
+        price?: { unit_amount?: number | null; product?: string | { id: string } };
+      }>;
+    };
+  }).items?.data ?? [];
   if (items.length !== 1) {
     throw new Error("Expected exactly one Stripe subscription item for property billing");
   }
-  const quantity = propertiesResult.data.filter((property) => !property.is_exempt_from_billing).length;
-  const form = new URLSearchParams({
-    "items[0][id]": items[0].id,
-    "items[0][quantity]": String(quantity),
-    proration_behavior: "create_prorations",
-  });
+  const monthlyPrice = monthlyPriceJpy(billableProperties.length);
+  if (items[0].quantity === 1 && items[0].price?.unit_amount === monthlyPrice) return;
+
+  const form = new URLSearchParams();
+  form.set("items[0][id]", items[0].id);
+  form.set("items[0][quantity]", "1");
+  form.set("items[0][price_data][currency]", "jpy");
+  form.set("items[0][price_data][unit_amount]", String(monthlyPrice));
+  form.set("items[0][price_data][tax_behavior]", "inclusive");
+  form.set("items[0][price_data][recurring][interval]", "month");
+  const product = items[0].price?.product;
+  const productId = typeof product === "string" ? product : product?.id;
+  if (productId) {
+    form.set("items[0][price_data][product]", productId);
+  } else {
+    form.set(
+      "items[0][price_data][product_data][name]",
+      billableProperties.length === 1 ? "Minpaku Report（1物件プラン）" : "Minpaku Report（2〜5物件プラン）",
+    );
+  }
+  form.set("proration_behavior", "create_prorations");
   await stripeRequest(`subscriptions/${encodeURIComponent(subscriptionId)}`, "POST", form);
 }

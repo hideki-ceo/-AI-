@@ -1,7 +1,13 @@
 import { redirect } from "next/navigation";
 import { PropertySetupForm } from "@/components/dashboard/PropertySetupForm";
 import { SubscriptionCheckoutButton } from "@/components/dashboard/SubscriptionCheckoutButton";
-import { BASE_PRICE_JPY } from "@/lib/billing";
+import {
+  BASE_PRICE_JPY,
+  MAX_PROPERTIES_PER_ACCOUNT,
+  MULTI_PROPERTY_ADDON_JPY,
+  MULTI_PROPERTY_PRICE_JPY,
+  monthlyPriceJpy,
+} from "@/lib/billing";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -22,7 +28,7 @@ export default async function PropertySettingsPage() {
 
   let propertiesQuery = admin
     .from("properties")
-    .select("id, user_id, property_name, beds24_property_id, reply_mode")
+    .select("id, user_id, property_name, beds24_property_id, reply_mode, is_exempt_from_billing")
     .order("property_name");
   if (profile.role !== "admin") {
     propertiesQuery = propertiesQuery.eq("user_id", authData.user.id);
@@ -67,14 +73,23 @@ export default async function PropertySettingsPage() {
     : { data: [], error: null };
   if (ownerTenantsResult.error) throw new Error(`Unable to load owner billing settings: ${ownerTenantsResult.error.message}`);
   const freeTenantIds = new Set((ownerTenantsResult.data ?? []).filter((tenant) => tenant.is_free_tier).map((tenant) => tenant.id));
+  const ownerPropertyCounts = new Map<string, number>();
+  for (const property of properties) {
+    ownerPropertyCounts.set(property.user_id, (ownerPropertyCounts.get(property.user_id) ?? 0) + 1);
+  }
   const ownerOptions = (profilesResult.data ?? []).map((owner) => ({
     id: owner.id,
     email: owner.email,
     billingExempt: owner.is_internal_free || freeTenantIds.has(owner.id),
+    propertyCount: ownerPropertyCounts.get(owner.id) ?? 0,
   }));
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/+$/, "");
   const myProperties = properties.filter((property) => property.user_id === authData.user.id);
-  const billablePropertyCount = myProperties.length;
+  const propertyCount = myProperties.length;
+  const billablePropertyCount = myProperties.filter((property) => !property.is_exempt_from_billing).length;
+  const monthlyPrice = billablePropertyCount <= MAX_PROPERTIES_PER_ACCOUNT
+    ? monthlyPriceJpy(billablePropertyCount)
+    : null;
   const billingExempt = profile.is_internal_free || tenantResult.data.is_free_tier;
   const subscriptionActive =
     profile.subscription_status === "active" ||
@@ -136,6 +151,7 @@ export default async function PropertySettingsPage() {
           billingExempt={billingExempt}
           isAdmin={profile.role === "admin"}
           currentUserId={authData.user.id}
+          propertyCount={propertyCount}
           ownerOptions={ownerOptions}
         />
       </section>
@@ -144,8 +160,15 @@ export default async function PropertySettingsPage() {
         <section className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200 sm:p-6">
           <h2 className="text-lg font-semibold text-ink">ご利用料金</h2>
           <p className="mt-2 text-sm text-slate-600">
-            {billablePropertyCount}物件 × {BASE_PRICE_JPY.toLocaleString("ja-JP")}円（税込）＝
-            月額 {(billablePropertyCount * BASE_PRICE_JPY).toLocaleString("ja-JP")}円（税込）
+            {billablePropertyCount === 1
+              ? `1アカウント基本料金：月額 ${BASE_PRICE_JPY.toLocaleString("ja-JP")}円（税込）`
+              : monthlyPrice === null
+                ? `${billablePropertyCount}物件：現在の料金プラン上限を超えています`
+                : `基本料金 ${BASE_PRICE_JPY.toLocaleString("ja-JP")}円 + 2〜5物件追加料金 ${MULTI_PROPERTY_ADDON_JPY.toLocaleString("ja-JP")}円 = 月額 ${monthlyPrice.toLocaleString("ja-JP")}円（税込）`}
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            2〜{MAX_PROPERTIES_PER_ACCOUNT}物件の追加料金は、物件数にかかわらず一律です。1アカウント最大
+            {MAX_PROPERTIES_PER_ACCOUNT}物件（2〜5物件の合計は月額{MULTI_PROPERTY_PRICE_JPY.toLocaleString("ja-JP")}円）。
           </p>
           {subscriptionActive ? (
             <p className="mt-3 text-sm font-medium text-emerald-700">Stripeの利用契約は有効です。</p>

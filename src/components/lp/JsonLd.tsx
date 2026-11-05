@@ -1,4 +1,9 @@
-import { BASE_PRICE_JPY } from "@/lib/billing";
+import {
+  BASE_PRICE_JPY,
+  MAX_PROPERTIES_PER_ACCOUNT,
+  MULTI_PROPERTY_ADDON_JPY,
+  MULTI_PROPERTY_PRICE_JPY,
+} from "@/lib/billing";
 import { FAQ_ITEMS } from "./faq-data";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "./site";
 
@@ -23,21 +28,28 @@ const softwareApplication = {
     "返信の日本語訳表示",
     "緊急・苦情・キャンセル等の要対応メッセージ判定",
     "緊急時・クレーム用の連絡先（LINE通話・電話番号）登録",
-    "1アカウント最大5物件のマルチテナント管理",
+    `1アカウント最大${MAX_PROPERTIES_PER_ACCOUNT}物件のマルチテナント管理`,
   ],
-  offers: {
-    "@type": "Offer",
-    name: "1物件あたりの月額利用料（税込）",
-    price: BASE_PRICE_JPY,
-    priceCurrency: "JPY",
-    priceSpecification: {
-      "@type": "UnitPriceSpecification",
+  offers: [
+    {
+      "@type": "Offer",
+      name: "1アカウント基本料金（月額・税込）",
       price: BASE_PRICE_JPY,
       priceCurrency: "JPY",
-      unitText: "物件・月",
-      valueAddedTaxIncluded: true,
     },
-  },
+    {
+      "@type": "Offer",
+      name: `2〜${MAX_PROPERTIES_PER_ACCOUNT}物件追加料金（月額・税込）`,
+      price: MULTI_PROPERTY_ADDON_JPY,
+      priceCurrency: "JPY",
+    },
+    {
+      "@type": "Offer",
+      name: `2〜${MAX_PROPERTIES_PER_ACCOUNT}物件利用時の合計（月額・税込）`,
+      price: MULTI_PROPERTY_PRICE_JPY,
+      priceCurrency: "JPY",
+    },
+  ],
 };
 
 const faqPage = {

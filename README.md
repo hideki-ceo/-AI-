@@ -43,6 +43,7 @@ npm run dev
 | Gemini | `GEMINI_API_KEY` / `GEMINI_MODEL` | ○ |
 | Beds24 | `BEDS24_INVITE_CODE` → `BEDS24_REFRESH_TOKEN` / `BEDS24_PROPERTY_ID` / `BEDS24_TEST_BOOKING_ID` | テスト・登録用 |
 | LINE | `LINE_CHANNEL_ACCESS_TOKEN` / `LINE_CHANNEL_SECRET` / `LINE_TEST_USER_ID` | テスト・登録用 |
+| Stripe | `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | ○ |
 | App | `NEXT_PUBLIC_APP_URL` | ○ |
 
 アプリ本体が使う Beds24 / LINE の認証情報は物件ごとに `property_secrets`（DB）に保存される。`.env.local` の Beds24 / LINE は、1物件分の接続テストと `property:register` の入力省略に使う。
@@ -72,7 +73,7 @@ npm run check:connections -- line --send-line   # LINE_TEST_USER_ID に実際に
 1. ログイン画面の「新規登録はこちら」からオーナー用アカウントを作成する（または Supabase の Authentication > Users > Add user で作成）。確認メールを有効にする場合は、Redirect URLs に登録済みの `/auth/confirm` を設定する
 2. Beds24: Settings > Marketplace > API で招待コードを発行（1回限り。権限は bookings の read と properties の read）
 3. LINE Developers: Messaging API チャネルの「チャネルアクセストークン（長期）」と「チャネルシークレット」を控える
-4. 管理画面の「物件・連携設定」から、物件名・Beds24物件ID・Beds24認証・LINE認証を登録する。通常物件は1物件あたり月額11,000円（税込）。契約中のStripe物件数は登録時に同期される
+4. 管理画面の「物件・連携設定」から、物件名・Beds24物件ID・Beds24認証・LINE認証を登録する。基本料金は1アカウント月額16,500円（税込）。2〜5物件は物件数にかかわらず月額5,500円（税込）を追加（合計22,000円）。1アカウント最大5物件で、契約中の料金プランは登録時にStripeへ同期される
 5. 登録後に表示されるゲスト用リンクを Beds24 の予約確認メールテンプレートに貼る。`[BOOKID]` は Beds24 の予約番号に置き換える。ゲストがリンクから LINE を開いて予約番号を送ると、予約と LINE アカウントが紐づく
 6. CLI で登録する場合:
    ```powershell
@@ -92,7 +93,7 @@ npm run check:connections -- line --send-line   # LINE_TEST_USER_ID に実際に
 | `property_ai_documents` | 予約前AIの参照資料（抽出テキストと非公開ファイル） | なし（service_role のみ） |
 
 - `role = 'admin'` のユーザーは全テーブルを閲覧できる。
-- 物件の追加・削除は Stripe quantity の同期を伴うため、Server Action から service_role で行う。
+- 物件の追加・削除は Stripe のアカウント単位料金プラン同期を伴うため、Server Action から service_role で行う。
 - LINE Webhook URL は物件ごとに `/api/webhooks/line/{property_id}` とし、`property_secrets.line_channel_secret` で署名を検証する。
 
 ## LINE 自動応答の流れ
@@ -171,6 +172,17 @@ Booking.com / Agoda / Expedia は現地払いの予約もあるため `ota` に�
 
 予約が Beds24 から同期される前に決済の通知が届いた場合は 409 を返し、Stripe の自動再送で後から反映する。
 
+### SaaS利用料のStripe料金
+
+- 1物件: 月額16,500円（税込）
+- 2〜5物件: 基本料金16,500円に、物件数にかかわらず月額5,500円（税込）を追加（合計22,000円）
+- 1アカウント最大5物件
+- 物件数を変える場合、Stripeの月額価格を上記プランに変更し、Stripeの比例配分を適用する
+
+CheckoutはStripe APIに料金を指定して作成するため、事前の商品・Price IDは不要。契約中に課金対象物件数が変わると、Stripeサブスクリプションの商品価格を更新し、比例配分（proration）を適用する。
+
+既存のactive契約の料金を一括更新する場合は、まず `npm run stripe:sync-pricing` で対象と金額を確認し、内容を確認してから `npm run stripe:sync-pricing -- --apply` を実行する。`--apply` はStripe上のサブスクリプション価格を変更し、日割り調整を発生させる。本番契約の更新には本番用 `STRIPE_SECRET_KEY` と本番DB接続が必要。
+
 ## 定期報告・宿泊者名簿
 
 `/dashboard/reports`（`/login` でログイン）で、2か月ごとの宿泊日数・宿泊者数・延べ宿泊者数・国籍別内訳を表示し、月別の宿泊者名簿を PDF / CSV で出力する。
@@ -186,8 +198,8 @@ PDF は Noto Sans JP と、ハングルを含む欄だけ Noto Sans KR を埋め
 - [x] 接続確認 CLI（`npm run check:connections`）
 - [ ] Supabase クラウドへの migrations 適用（`.env.local` の記入後）
 - [ ] 認証画面・ダッシュボード（承認待ち一覧、承認時は push 送信）
-- [ ] 物件の追加・削除 Server Action + Stripe quantity 同期
-- [ ] Stripe Checkout / Webhook（`subscription_status` の更新）
+- [x] 物件登録時のStripeアカウント料金プラン同期（最大5物件）
+- [x] Stripe Checkout / Webhook（`subscription_status` の更新）
 
 ## ソアリング合同会社アカウントの無料化
 

@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { syncTenantStripeQuantity } from "@/lib/stripe-billing";
+import { syncTenantStripePlan } from "@/lib/stripe-billing";
 
 type AdminContext = { id: string };
 
@@ -84,7 +84,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Unable to synchronize account exemption" }, { status: 500 });
     }
     try {
-      await syncTenantStripeQuantity(body.id);
+      await syncTenantStripePlan(body.id);
     } catch (error) {
       await Promise.all([
         admin
@@ -125,7 +125,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Unable to update property exemption" }, { status: 500 });
     }
     try {
-      await syncTenantStripeQuantity(existing.tenant_id);
+      await syncTenantStripePlan(existing.tenant_id);
     } catch (syncError) {
       const { error: rollbackError } = await admin
         .from("properties")

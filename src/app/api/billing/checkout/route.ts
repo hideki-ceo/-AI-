@@ -1,5 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { BASE_PRICE_JPY } from "@/lib/billing";
+import {
+  MAX_PROPERTIES_PER_ACCOUNT,
+  monthlyPriceJpy,
+} from "@/lib/billing";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -29,6 +32,10 @@ export async function POST(request: NextRequest) {
   if (billableProperties === 0) {
     return NextResponse.json({ error: "No billable properties are registered" }, { status: 409 });
   }
+  if (propertyResult.data.length > MAX_PROPERTIES_PER_ACCOUNT) {
+    return NextResponse.json({ error: "A maximum of 5 properties is supported" }, { status: 409 });
+  }
+  const monthlyPrice = monthlyPriceJpy(billableProperties);
 
   const stripeSecret = process.env.STRIPE_SECRET_KEY;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, "");
@@ -43,11 +50,12 @@ export async function POST(request: NextRequest) {
     success_url: `${appUrl}/dashboard/settings?checkout=success`,
     cancel_url: `${appUrl}/dashboard/settings?checkout=cancelled`,
     "line_items[0][price_data][currency]": "jpy",
-    "line_items[0][price_data][unit_amount]": String(BASE_PRICE_JPY),
+    "line_items[0][price_data][unit_amount]": String(monthlyPrice),
     "line_items[0][price_data][tax_behavior]": "inclusive",
     "line_items[0][price_data][recurring][interval]": "month",
-    "line_items[0][price_data][product_data][name]": "Minpaku Report（1物件あたり）",
-    "line_items[0][quantity]": String(billableProperties),
+    "line_items[0][price_data][product_data][name]":
+      billableProperties === 1 ? "Minpaku Report（1物件プラン）" : "Minpaku Report（2〜5物件プラン）",
+    "line_items[0][quantity]": "1",
     "subscription_data[metadata][tenant_id]": tenant.id,
     "metadata[tenant_id]": tenant.id,
   });

@@ -14,6 +14,7 @@
     "db:types": "supabase gen types typescript --local > src/types/database.ts",
     "check:connections": "tsx --conditions=react-server --env-file=.env.local scripts/check-connections.ts",
     "beds24:setup": "tsx --conditions=react-server --env-file=.env.local scripts/beds24-setup.ts",
+    "stripe:sync-pricing": "tsx --conditions=react-server --env-file=.env.local scripts/sync-stripe-pricing.ts",
     "export:wordpress": "tsx --tsconfig scripts/tsconfig.export.json scripts/export-wordpress.tsx",
     "property:register": "tsx --conditions=react-server --env-file=.env.local scripts/register-property.ts"
   },

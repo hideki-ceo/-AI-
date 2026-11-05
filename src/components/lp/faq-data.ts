@@ -1,4 +1,9 @@
-import { BASE_PRICE_JPY } from "@/lib/billing";
+import {
+  BASE_PRICE_JPY,
+  MAX_PROPERTIES_PER_ACCOUNT,
+  MULTI_PROPERTY_ADDON_JPY,
+  MULTI_PROPERTY_PRICE_JPY,
+} from "@/lib/billing";
 
 // FAQ セクションと FAQPage 構造化データの両方で使う。illustration は FAQ セクションでのみ回答の下に図解を出す
 export const FAQ_ITEMS: { question: string; answer: string; illustration?: "booking-flow" }[] = [
@@ -35,11 +40,11 @@ export const FAQ_ITEMS: { question: string; answer: string; illustration?: "book
   },
   {
     question: "複数の物件を運営していても使えますか？",
-    answer: "はい。複数物件をひとつのアカウントで管理できます。料金は物件ごとの月額制です。",
+    answer: `はい。1アカウントで最大${MAX_PROPERTIES_PER_ACCOUNT}物件まで管理できます。`,
   },
   {
     question: "料金はいくらですか？",
-    answer: `1物件あたり月額${BASE_PRICE_JPY.toLocaleString("ja-JP")}円（税込）です。ソアリング合同会社の対象テナントおよび管理委託契約物件は無料でご利用いただけます。`,
+    answer: `基本料金は1アカウント月額${BASE_PRICE_JPY.toLocaleString("ja-JP")}円（税込）です。2〜${MAX_PROPERTIES_PER_ACCOUNT}物件の場合は、物件数にかかわらず月額${MULTI_PROPERTY_ADDON_JPY.toLocaleString("ja-JP")}円（税込）を追加し、合計月額${MULTI_PROPERTY_PRICE_JPY.toLocaleString("ja-JP")}円（税込）となります。ソアリング合同会社の対象テナントおよび管理委託契約物件は無料でご利用いただけます。`,
   },
   {
     question: "宿泊者名簿やパスポート画像が未提出でも鍵番号は届きますか？",

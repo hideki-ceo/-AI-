@@ -5,20 +5,28 @@ import {
   registerPropertyAction,
   type RegisterPropertyState,
 } from "@/app/dashboard/settings/actions";
+import {
+  BASE_PRICE_JPY,
+  MAX_PROPERTIES_PER_ACCOUNT,
+  MULTI_PROPERTY_ADDON_JPY,
+  MULTI_PROPERTY_PRICE_JPY,
+} from "@/lib/billing";
 
 const initialState: RegisterPropertyState = null;
 
-type OwnerOption = { id: string; email: string; billingExempt: boolean };
+type OwnerOption = { id: string; email: string; billingExempt: boolean; propertyCount: number };
 
 export function PropertySetupForm({
   billingExempt,
   isAdmin,
   currentUserId,
+  propertyCount,
   ownerOptions = [],
 }: {
   billingExempt: boolean;
   isAdmin: boolean;
   currentUserId: string;
+  propertyCount: number;
   ownerOptions: OwnerOption[];
 }) {
   const [state, action, pending] = useActionState(registerPropertyAction, initialState);
@@ -27,6 +35,8 @@ export function PropertySetupForm({
   const formRef = useRef<HTMLFormElement>(null);
   const selectedOwner = ownerOptions.find((owner) => owner.id === selectedOwnerId);
   const selectedAccountExempt = isAdmin ? selectedOwner?.billingExempt ?? false : billingExempt;
+  const selectedPropertyCount = isAdmin ? selectedOwner?.propertyCount ?? 0 : propertyCount;
+  const propertyLimitReached = selectedPropertyCount >= MAX_PROPERTIES_PER_ACCOUNT;
 
   useEffect(() => {
     if (state?.success) {
@@ -63,6 +73,11 @@ export function PropertySetupForm({
             <p className="mt-1 text-xs">`[BOOKID]` はBeds24の予約番号に置き換わります。ゲストはリンクからLINEを開き、予約番号を送信して紐づけます。</p>
           </div>
         </div>
+      )}
+      {propertyLimitReached && (
+        <p role="status" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+          1アカウントに登録できる物件は最大{MAX_PROPERTIES_PER_ACCOUNT}件です。このアカウントは登録上限に達しています。
+        </p>
       )}
       <form ref={formRef} action={action} className="space-y-5">
         {isAdmin && (
@@ -165,17 +180,20 @@ export function PropertySetupForm({
               className="mt-1"
             />
             <span>
-              通常物件は1物件あたり月額11,000円（税込）です。登録により登録先の課金対象数が増え、契約中の場合はStripeのサブスクリプション数量が更新されます。
+              1アカウント基本料金は月額{BASE_PRICE_JPY.toLocaleString("ja-JP")}円（税込）です。2〜
+              {MAX_PROPERTIES_PER_ACCOUNT}物件の場合、物件数にかかわらず月額
+              {MULTI_PROPERTY_ADDON_JPY.toLocaleString("ja-JP")}円（税込）を追加します（合計月額
+              {MULTI_PROPERTY_PRICE_JPY.toLocaleString("ja-JP")}円）。登録により料金が変わる場合、契約中のStripe請求額に反映されます。
             </span>
           </label>
         )}
 
         <button
           type="submit"
-          disabled={pending}
+          disabled={pending || propertyLimitReached}
           className="w-full rounded-lg bg-brand-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
         >
-          {pending ? "連携を確認・登録中…" : "物件と連携を登録"}
+          {pending ? "連携を確認・登録中…" : propertyLimitReached ? "物件登録上限に達しています" : "物件と連携を登録"}
         </button>
       </form>
     </div>

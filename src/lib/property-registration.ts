@@ -9,7 +9,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { ReplyMode } from "@/types/database";
 
 // 物件の登録（外部 API の認証情報の検証 → properties / property_secrets の作成）。
-// Stripe quantity の同期は含まない。課金対象ユーザーの物件追加では、呼び出し側で同期すること。
+// Stripe の料金プラン同期は含まない。物件登録後、呼び出し側で同期すること。
 
 export type RegisterPropertyInput = {
   ownerId: string;

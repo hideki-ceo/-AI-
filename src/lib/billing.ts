@@ -1,8 +1,16 @@
-// Standard subscription price per property, including tax.
-export const BASE_PRICE_JPY = 11_000;
+export const BASE_PRICE_JPY = 16_500;
+export const MULTI_PROPERTY_ADDON_JPY = 5_500;
+export const MULTI_PROPERTY_PRICE_JPY = BASE_PRICE_JPY + MULTI_PROPERTY_ADDON_JPY;
+export const MAX_PROPERTIES_PER_ACCOUNT = 5;
 
 export function monthlyPriceJpy(propertyCount: number): number {
-  return Math.max(0, Math.floor(propertyCount)) * BASE_PRICE_JPY;
+  const count = Math.max(0, Math.floor(propertyCount));
+  if (!Number.isFinite(count)) throw new RangeError("Property count must be a finite number.");
+  if (count > MAX_PROPERTIES_PER_ACCOUNT) {
+    throw new RangeError(`A maximum of ${MAX_PROPERTIES_PER_ACCOUNT} properties is supported.`);
+  }
+  if (count === 0) return 0;
+  return count === 1 ? BASE_PRICE_JPY : BASE_PRICE_JPY + MULTI_PROPERTY_ADDON_JPY;
 }
 
 export function requiresBilling(profile: {

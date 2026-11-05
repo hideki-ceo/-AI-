@@ -2,9 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { configureLineWebhook, registerProperty } from "@/lib/property-registration";
+import { MAX_PROPERTIES_PER_ACCOUNT } from "@/lib/billing";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { syncTenantStripeQuantity } from "@/lib/stripe-billing";
+import { syncTenantStripePlan } from "@/lib/stripe-billing";
 import type { ReplyMode } from "@/types/database";
 
 export type RegisterPropertyState = {
@@ -64,13 +65,20 @@ export async function registerPropertyAction(
   const replyMode = field(formData, "replyMode");
   const parsedReplyMode: ReplyMode | null =
     replyMode === "auto" || replyMode === "approval" ? replyMode : null;
-  const [ownerProfileResult, tenantResult] = await Promise.all([
+  const [ownerProfileResult, tenantResult, ownerPropertiesResult] = await Promise.all([
     admin.from("profiles").select("id, is_internal_free").eq("id", ownerId).single(),
     admin.from("tenants").select("is_free_tier").eq("id", ownerId).single(),
+    admin.from("properties").select("id", { count: "exact", head: true }).eq("tenant_id", ownerId),
   ]);
-  if (ownerProfileResult.error || tenantResult.error) {
-    console.error("Property setup: failed to load target account", ownerProfileResult.error ?? tenantResult.error);
+  if (ownerProfileResult.error || tenantResult.error || ownerPropertiesResult.error) {
+    console.error(
+      "Property setup: failed to load target account",
+      ownerProfileResult.error ?? tenantResult.error ?? ownerPropertiesResult.error,
+    );
     return { error: "登録先アカウントを確認できませんでした。選択内容を確認してください。" };
+  }
+  if ((ownerPropertiesResult.count ?? 0) >= MAX_PROPERTIES_PER_ACCOUNT) {
+    return { error: `1アカウントに登録できる物件は最大${MAX_PROPERTIES_PER_ACCOUNT}件です。` };
   }
   const isBillingExempt = ownerProfileResult.data.is_internal_free || tenantResult.data.is_free_tier;
 
@@ -145,9 +153,9 @@ export async function registerPropertyAction(
     }
 
     try {
-      await syncTenantStripeQuantity(ownerId);
+      await syncTenantStripePlan(ownerId);
     } catch (error) {
-      console.error("Property setup: Stripe quantity synchronization failed", registered.propertyId, error);
+      console.error("Property setup: Stripe plan synchronization failed", registered.propertyId, error);
       return {
         error: "物件と連携情報は登録されましたが、課金対象数の同期に失敗しました。サポートへお問い合わせください。",
       };
@@ -166,6 +174,9 @@ export async function registerPropertyAction(
     };
   } catch (error) {
     console.error("Property setup: registration failed", error);
+    if (error instanceof Error && error.message.includes("maximum of 5 properties")) {
+      return { error: `1アカウントに登録できる物件は最大${MAX_PROPERTIES_PER_ACCOUNT}件です。` };
+    }
     return {
       error:
         "連携情報を確認できませんでした。LINEのアクセストークンとチャネルシークレット、Beds24の招待コードまたはrefresh token、Beds24物件IDとAPI権限をご確認ください。",
